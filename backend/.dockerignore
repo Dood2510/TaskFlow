@@ -1,0 +1,7 @@
+venv/
+pycache/
+*.pyc
+tests/
+.pytest_cache/
+taskflow.db
+.git/

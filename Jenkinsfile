@@ -8,10 +8,12 @@ pipeline {
             }
         }
 
-        stage('Install Dependencies') {
+        stage('Setup Virtual Environment') {
             steps {
                 dir('backend') {
-                    sh 'python3 -m pip install --break-system-packages -r requirements.txt'
+                    sh 'python3 -m venv jenkins_venv'
+                    sh 'jenkins_venv/bin/pip install --upgrade pip'
+                    sh 'jenkins_venv/bin/pip install -r requirements.txt'
                 }
             }
         }
@@ -19,7 +21,7 @@ pipeline {
         stage('Run Tests') {
             steps {
                 dir('backend') {
-                    sh 'python3 -m pytest -v'
+                    sh 'jenkins_venv/bin/pytest -v'
                 }
             }
         }

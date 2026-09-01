@@ -1,0 +1,37 @@
+---
+- name: Configure target server
+  hosts: targets
+  become: true
+
+  tasks:
+    - name: Update apt package cache
+      apt:
+        update_cache: true
+
+    - name: Ensure Docker is installed
+      apt:
+        name: docker.io
+        state: present
+
+    - name: Ensure Docker service is running and enabled
+      service:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Create a non-root deploy user
+      user:
+        name: deployer
+        shell: /bin/bash
+        groups: docker
+        append: true
+
+    - name: Ensure UFW firewall allows SSH
+      ufw:
+        rule: allow
+        port: "22"
+        proto: tcp
+
+    - name: Enable UFW firewall
+      ufw:
+        state: enabled

@@ -1,0 +1,14 @@
+replicaCount: 2
+
+image:
+  repository: taskflow-api
+  tag: latest
+  pullPolicy: Never
+
+service:
+  port: 8000
+  nodePort: 30080
+
+config:
+  appEnv: "production"
+  logLevel: "info"

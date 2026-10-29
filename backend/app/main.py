@@ -79,3 +79,11 @@ def delete_task(task_id: int, db: Session = Depends(get_db)):
     db.delete(task)
     db.commit()
     return {"message": "Task deleted"}
+
+
+import os
+
+
+@app.get("/version")
+def version():
+    return {"version": os.getenv("APP_VERSION", "unknown")}

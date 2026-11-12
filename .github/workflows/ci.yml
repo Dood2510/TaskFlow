@@ -33,3 +33,33 @@ jobs:
 
       - name: Build Docker image
         run: docker build -t taskflow-api .
+
+  push-image:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write   # lets the job request GitHub's signed identity token
+      contents: read
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Get AWS credentials (OIDC, no stored keys)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::446476244331:role/taskflow-github-ci
+          aws-region: us-east-1
+
+      - name: Log in to ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push image
+        working-directory: backend
+        run: |
+          REPO=446476244331.dkr.ecr.us-east-1.amazonaws.com/taskflow
+          TAG="sha-${GITHUB_SHA::7}"
+          docker build --provenance=false --sbom=false -t $REPO:$TAG .
+          docker push $REPO:$TAG

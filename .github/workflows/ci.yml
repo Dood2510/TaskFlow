@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [ main ]
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -17,6 +20,17 @@ jobs:
     steps:
       - name: Check out code
         uses: actions/checkout@v4
+
+      - name: Scan code for vulnerable dependencies and leaked secrets
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          format: table
+          exit-code: '0'   # report only for now
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -31,7 +45,8 @@ jobs:
       - name: Run tests
         run: pytest -v
 
-      - name: Build Docker image
+      - name: Build Docker image (PRs only, main builds in the push job)
+        if: github.event_name == 'pull_request'
         run: docker build -t taskflow-api .
 
   push-image:
@@ -43,22 +58,25 @@ jobs:
       id-token: write   # lets the job request GitHub's signed identity token
       contents: read
 
+    env:
+      REPO: 446476244331.dkr.ecr.us-east-1.amazonaws.com/taskflow
+
     steps:
       - name: Check out code
         uses: actions/checkout@v4
 
-      - name: Debug OIDC claims (temporary)
-        run: |
-          python3 - <<'PY'
-          import os, json, base64, urllib.request
-          url = os.environ["ACTIONS_ID_TOKEN_REQUEST_URL"] + "&audience=sts.amazonaws.com"
-          req = urllib.request.Request(url, headers={"Authorization": "bearer " + os.environ["ACTIONS_ID_TOKEN_REQUEST_TOKEN"]})
-          tok = json.load(urllib.request.urlopen(req))["value"]
-          p = tok.split(".")[1]
-          p += "=" * (-len(p) % 4)
-          c = json.loads(base64.urlsafe_b64decode(p))
-          print({k: c.get(k) for k in ("sub", "aud", "repository", "ref")})
-          PY
+      - name: Build image (once)
+        working-directory: backend
+        run: docker build --provenance=false --sbom=false -t taskflow:ci .
+
+      - name: Scan image with Trivy
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: taskflow:ci
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          format: table
+          exit-code: '0'   # report only for now
 
       - name: Get AWS credentials (OIDC, no stored keys)
         uses: aws-actions/configure-aws-credentials@v4
@@ -69,10 +87,8 @@ jobs:
       - name: Log in to ECR
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build and push image
-        working-directory: backend
+      - name: Tag and push
         run: |
-          REPO=446476244331.dkr.ecr.us-east-1.amazonaws.com/taskflow
           TAG="sha-${GITHUB_SHA::7}"
-          docker build --provenance=false --sbom=false -t $REPO:$TAG .
+          docker tag taskflow:ci $REPO:$TAG
           docker push $REPO:$TAG

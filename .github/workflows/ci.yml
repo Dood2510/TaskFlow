@@ -30,7 +30,7 @@ jobs:
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           format: table
-          exit-code: '0'   # report only for now
+          exit-code: '1'  # blocking: fail on fixable HIGH/CRITICAL
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -76,7 +76,7 @@ jobs:
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           format: table
-          exit-code: '0'   # report only for now
+          exit-code: '1'  # blocking: fail on fixable HIGH/CRITICAL
 
       - name: Get AWS credentials (OIDC, no stored keys)
         uses: aws-actions/configure-aws-credentials@v4
